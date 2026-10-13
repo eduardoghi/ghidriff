@@ -278,7 +278,7 @@ class SigCallingCalledHasher:
     def hash(self, func: 'ghidra.program.model.listing.Function', monitor: 'ghidra.util.task.TaskMonitor') -> int:
 
         called = [called.toString() for called in func.getCalledFunctions(monitor) if "FUN_" not in called.toString()]
-        calling = [calling.toString() for calling in func.getCalledFunctions(monitor)
+        calling = [calling.toString() for calling in func.getCallingFunctions(monitor)
                    if "FUN_" not in calling.toString()]
 
         sig = func.getSignature().toString().replace(func.name, '')
