@@ -40,6 +40,7 @@ class VersionTrackingDiff(GhidraDiffEngine):
         # Correlators
         from ghidra.app.plugin.match import ExactMnemonicsFunctionHasher, ExactBytesFunctionHasher, ExactInstructionsFunctionHasher
         from .correlators import StructuralGraphExactHasher, StructuralGraphHasher, BulkInstructionsHasher, BulkMnemonicHasher, BulkBasicBlockMnemonicHasher, NamespaceNameParamHasher, NameParamHasher, NameParamRefHasher, SigCallingCalledHasher, StringsRefsHasher, SwitchSigHasher, StrUniqueFuncRefsHasher
+        from .correlators import get_defined_data, get_func_to_switch
 
         monitor = ConsoleTaskMonitor()
 
@@ -264,6 +265,11 @@ class VersionTrackingDiff(GhidraDiffEngine):
 
         # skip types will undergo less processing
         skip_types = ['BulkBasicBlockMnemonicHash', 'Decomp Match']
+
+        # Both caches are keyed by Program and would keep every program diffed in this process
+        # alive, including the copies diff_bins closes when it finishes.
+        get_defined_data.cache_clear()
+        get_func_to_switch.cache_clear()
 
         return [unmatched, matched, skip_types]
 
