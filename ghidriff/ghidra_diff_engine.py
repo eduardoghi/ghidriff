@@ -1736,10 +1736,12 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
     # _DAT_...). A preceding letter or digit means it is part of a longer
     # identifier; a following word character means the hex run is not the end.
     DEFAULT_LABEL = re.compile(r'(?<![0-9A-Za-z])(LAB|DAT|SUB|UNK|EXT|FUN|OFF)_([0-9a-fA-F]+)(?![0-9A-Za-z_])')
+    # func_0x0001f2769220 is a call to an address with no function, such as a
+    # stub outside the image, and moves like the others.
     ADDRESS_LABEL = re.compile(
         r'(?<![0-9A-Za-z_])'
         r'(?:(switchD|switchdataD)_([0-9a-fA-F]+)((?:_caseD_\d+|_default)?)'
-        r'|(joined_r0x|code_r0x)([0-9a-fA-F]+))'
+        r'|(joined_r0x|code_r0x|func_0x)([0-9a-fA-F]+))'
         r'(?![0-9A-Za-z_])'
     )
 
