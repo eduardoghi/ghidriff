@@ -16,6 +16,7 @@ from types import SimpleNamespace
 from typing import List, Tuple, Union, TYPE_CHECKING
 from argparse import Namespace
 import logging
+import os
 
 from pyghidra.launcher import PyGhidraLauncher
 from .utils import sha1_file, get_microsoft_download_url, get_pe_download_name, get_pe_extra_data
@@ -312,6 +313,21 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
             gpr_path=project_location / f"{project_name}.gpr",
             was_gpr_path=False,
         )
+
+    @staticmethod
+    def check_project_location(project_location: Union[str, Path]) -> None:
+        """
+        Raise ValueError when Ghidra would refuse the project directory.
+
+        Ghidra rejects any path element that starts with '.', such as ~/.cache, with an error
+        from deep inside project creation.
+        """
+
+        hidden = [part for part in Path(os.path.abspath(project_location)).parts if part.startswith('.')]
+        if hidden:
+            raise ValueError(
+                f"Ghidra does not accept project paths with elements starting with '.' ({', '.join(hidden)}): "
+                f"{project_location}. Choose another --project-location.")
 
     def check_runtime_compatibility(self, ghidra_version: str) -> None:
         """
@@ -811,6 +827,7 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
             project_location = project_spec.project_location
         else:
             project_location = project_spec.project_location / project_name
+        self.check_project_location(project_location)
         project_location.mkdir(exist_ok=True, parents=True)
 
         if gzfs_path is not None:

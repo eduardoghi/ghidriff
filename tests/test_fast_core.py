@@ -631,3 +631,10 @@ def test_file_log_level_is_independent_of_console_level(tmp_path: Path):
             handler.close()
 
     assert 'debug line' in log_path.read_text()
+
+
+def test_project_location_rejects_hidden_path_elements(tmp_path: Path):
+    GhidraDiffEngine.check_project_location(tmp_path / 'ghidra_projects' / 'ghidriff')
+
+    with pytest.raises(ValueError, match=r'\.cache'):
+        GhidraDiffEngine.check_project_location(tmp_path / '.cache' / 'ghidra_projects')
