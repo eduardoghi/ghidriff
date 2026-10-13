@@ -91,3 +91,22 @@ def test_correlate_implied_matches_checks_each_accepted_match_once(monkeypatch):
         matches, [missing1, missing2], [missing3], set(), set(), p1, p2, 2, None, logging.getLogger('test'))
 
     assert checked == [(caller1, caller2)]
+
+
+def test_implied_match_needs_both_functions_unmatched(monkeypatch):
+    p1 = _Program()
+    p2 = _Program()
+    caller1 = _Func(0x100, p1)
+    caller2 = _Func(0x200, p2)
+    p1.functions = {0x100: caller1}
+    p2.functions = {0x200: caller2}
+    missing1 = _Func(0x110, p1, callers=[caller1])
+    missing2 = _Func(0x210, p2, callers=[caller2])
+    matches = {(0x100, 0x200): {'SymbolsHash': 1}}
+    implied = [(0x110, 0x200, 'FUNCTION'), (0x110, 0x210, 'FUNCTION')]
+    monkeypatch.setattr(implied_matches, 'find_implied_matches', lambda f1, f2: implied)
+
+    implied_matches.correlate_implied_matches(
+        matches, [missing1], [missing2], set(), set(), p1, p2, 1, None, logging.getLogger('test'))
+
+    assert set(matches) == {(0x100, 0x200), (0x110, 0x210)}

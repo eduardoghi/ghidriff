@@ -208,7 +208,7 @@ def correlate_implied_matches(matches, p1_missing, p2_missing, p1_matches, p2_ma
                     # only apply function matches
                     if implied_match[2] == 'FUNCTION':
                         # ensure implied match is correlating an unmatched function
-                        if implied_match[0] in src_missing_addrs or implied_match[1] in dst_missing_addrs:
+                        if implied_match[0] in src_missing_addrs and implied_match[1] in dst_missing_addrs:
                             if matches.get((implied_match[0], implied_match[1])) is None:
                                 recovered += 1
 
