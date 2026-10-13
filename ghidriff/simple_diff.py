@@ -264,7 +264,8 @@ class SimpleDiff(GhidraDiffEngine):
             if found:
                 matched.append(sym)
                 matched.append(sym2)
-                matches.append([sym, sym2, match_type])
+                # sym comes from p2 here, and callers expect [old, new]
+                matches.append([sym2, sym, match_type])
             else:
                 self.logger.info(f"Added func found: {sym}")
                 unmatched.append(sym)
