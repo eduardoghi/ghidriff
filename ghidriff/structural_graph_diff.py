@@ -326,6 +326,9 @@ class StructualGraphDiff(GhidraDiffEngine):
                 matched.append(sym2)
                 # sym comes from p2 here, and callers expect [old, new]
                 matches.append([sym2, sym, [match_type]])
+                # The p1 pass may have given up on sym2 and reported it as deleted.
+                if sym2 in unmatched:
+                    unmatched.remove(sym2)
             else:
                 self.logger.info(f"Added func found: {sym}")
                 unmatched.append(sym)
