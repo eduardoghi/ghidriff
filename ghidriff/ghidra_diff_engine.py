@@ -1900,9 +1900,14 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
         else:
             p2 = self.project.openProgram("/", p2_name, False)
 
-        # key by project bin name, not prog.name: two inputs can share a basename
-        pdiff['program_options'][p1_name] = self.get_all_program_options(p1)
-        pdiff['program_options'][p2_name] = self.get_all_program_options(p2)
+        # Keyed by program name like before, except when two inputs share a basename and the
+        # second entry would replace the first. Then the project names, which differ, are used.
+        if p1.name != p2.name or p1 is p2:
+            p1_key, p2_key = p1.name, p2.name
+        else:
+            p1_key, p2_key = p1_name, p2_name
+        pdiff['program_options'][p1_key] = self.get_all_program_options(p1)
+        pdiff['program_options'][p2_key] = self.get_all_program_options(p2)
 
         self.project.close(p1)
         self.project.close(p2)
