@@ -739,3 +739,47 @@ def test_mermaid_flowchart_lists_exactly_max_section_funcs():
     assert 'Added1' in flowchart
     assert 'Added2' not in flowchart
     assert '3_more_added_funcs_omitted' in flowchart
+
+
+def _md_esym(name):
+    return {'name': name, 'fullname': name, 'parent': 'Global', 'refcount': 1, 'length': 10, 'called': [],
+            'calling': [], 'paramcount': 0, 'address': '00401000', 'sig': f'void {name}(void)', 'code': '',
+            'instructions': [], 'mnemonics': [], 'blocks': [], 'sym_type': 'Function', 'sym_source': 'IMPORTED',
+            'external': False}
+
+
+def _md_modified(name, diff_type):
+    return {'old': _md_esym(name), 'new': _md_esym(name), 'diff': '-int a;\n+int b;\n', 'diff_type': diff_type,
+            'ratio': 0.5, 'i_ratio': 0.5, 'm_ratio': 0.5, 'b_ratio': 0.5, 'match_types': ['SymbolsHash']}
+
+
+def _gen_md(modified, max_section_funcs):
+    pdiff = {
+        'functions': {'added': [], 'deleted': [], 'modified': modified},
+        'old_meta': {'Program Name': 'old.bin'},
+        'new_meta': {'Program Name': 'new.bin'},
+        'program_options': {},
+        'stats': {'first_matches': {}, 'match_types': {}, 'func_match_overall_percent': '100%',
+                  'match_func_similarity_percent': '50%'},
+        'strings': {'added': [], 'deleted': []},
+        'md_credits': '',
+    }
+    engine = object.__new__(_FastEngine)
+    engine.logger = logging.getLogger('test')
+    engine.args = None
+    return engine.gen_diff_md(pdiff, max_section_funcs=max_section_funcs)
+
+
+def test_modified_section_limit_counts_only_functions_with_code_changes():
+    md = _gen_md([_md_modified('a', ['code']), _md_modified('b', ['refcount']), _md_modified('c', ['code']),
+                  _md_modified('d', ['code'])], max_section_funcs=2)
+
+    assert 'Max Modified Section Functions Reached Error' in md
+    assert '\n1 Functions Ommited...' in md
+
+
+def test_modified_section_limit_ignores_trailing_functions_without_code_changes():
+    md = _gen_md([_md_modified('a', ['code']), _md_modified('b', ['refcount'])], max_section_funcs=1)
+
+    assert 'Max Modified Section Functions Reached Error' not in md
+

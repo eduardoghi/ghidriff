@@ -758,20 +758,23 @@ pie showData
         md.new_header(1, 'Modified')
         md.new_paragraph(f"*Modified functions contain code changes*")
         modified_with_code = 0
+        code_mods_len = len([modified for modified in funcs['modified'] if 'code' in modified['diff_type']])
         for modified in funcs['modified']:
-
-            if modified_with_code >= max_section_funcs:
-                md.new_header(2, 'Max Modified Section Functions Reached Error')
-                md.new_line(f"{len(funcs['modified']) - max_section_funcs} Functions Ommited...")
-                self.logger.warn(f'Max Modified Section Functions {max_section_funcs} Reached')
-                self.logger.warn(f"{len(funcs['modified']) - max_section_funcs} Functions Ommited...")
-                break
 
             diff = None
             old_func_name = modified['old']['fullname']
 
             # selectively include matches
             if 'code' in modified['diff_type']:
+
+                # Checked here, not at the top of the loop, so the limit only stops the section
+                # when a function with code changes is actually left out.
+                if modified_with_code >= max_section_funcs:
+                    md.new_header(2, 'Max Modified Section Functions Reached Error')
+                    md.new_line(f"{code_mods_len - max_section_funcs} Functions Ommited...")
+                    self.logger.warn(f'Max Modified Section Functions {max_section_funcs} Reached')
+                    self.logger.warn(f"{code_mods_len - max_section_funcs} Functions Ommited...")
+                    break
 
                 modified_with_code += 1
 
