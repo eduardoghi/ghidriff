@@ -2129,7 +2129,8 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
             else:
                 pe_key = 'PE Property[OriginalFilename]'
 
-            if pdiff['old_meta'].get(pe_key) is not None:
+            # A rebuilt image need not carry the version resource that names it.
+            if pdiff['old_meta'].get(pe_key) is not None and pdiff['new_meta'].get(pe_key) is not None:
                 pdiff['old_pe_url'] = self.get_pe_download_url(old, pdiff['old_meta'][pe_key])
                 pdiff['new_pe_url'] = self.get_pe_download_url(new, pdiff['new_meta'][pe_key])
             else:
