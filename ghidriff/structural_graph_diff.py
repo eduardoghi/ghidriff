@@ -257,7 +257,7 @@ class StructualGraphDiff(GhidraDiffEngine):
                                 match_type = 'FullName:Param:NumCalls'
                                 matched.append(sym)
                                 matched.append(sym2)
-                                matches.append([sym, sym2, match_type])
+                                matches.append([sym, sym2, [match_type]])
 
                 else:
                     sym2 = func2.getSymbol()
@@ -265,7 +265,7 @@ class StructualGraphDiff(GhidraDiffEngine):
                     match_type = 'FullName:Param'
                     matched.append(sym)
                     matched.append(sym2)
-                    matches.append([sym, sym2, match_type])
+                    matches.append([sym, sym2, [match_type]])
 
         for sym in p1_modified:
             found = False
@@ -301,7 +301,7 @@ class StructualGraphDiff(GhidraDiffEngine):
             if found:
                 matched.append(sym)
                 matched.append(sym2)
-                matches.append([sym, sym2, match_type])
+                matches.append([sym, sym2, [match_type]])
             else:
                 self.logger.info(f"Deleted func found: {sym}")
                 self.logger.info(
@@ -338,7 +338,7 @@ class StructualGraphDiff(GhidraDiffEngine):
                 matched.append(sym)
                 matched.append(sym2)
                 # sym comes from p2 here, and callers expect [old, new]
-                matches.append([sym2, sym, match_type])
+                matches.append([sym2, sym, [match_type]])
             else:
                 self.logger.info(f"Added func found: {sym}")
                 unmatched.append(sym)
