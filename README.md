@@ -324,13 +324,22 @@ $ ghidriff --base-address 0x80000 STM32F103C-firmware.bin STM32F103Ca-firmware.b
 ## Quick Start Environment Setup
 
 1. [Download](https://github.com/NationalSecurityAgency/ghidra/releases) and [install Ghidra](https://htmlpreview.github.io/?https://github.com/NationalSecurityAgency/ghidra/blob/stable/GhidraDocs/InstallationGuide.html#Install). The current development target is Ghidra 12.0.4 with pyghidra 3.x.
-2. Set Ghidra Environment Variable `GHIDRA_INSTALL_DIR` to Ghidra install location.
-3. Pip install `ghidriff`
+2. Install a JDK supported by your Ghidra release. Ghidra 12 needs JDK 21 or newer, and ghidriff fails with "Unable to locate a Java Runtime" without one.
+3. Set Ghidra Environment Variable `GHIDRA_INSTALL_DIR` to Ghidra install location.
+4. Pip install `ghidriff`
+
+If the shell then reports `ghidriff: command not found`, pip put the script in a directory that is not on `PATH`, such as `~/.local/bin` on Linux or `~/Library/Python/3.x/bin` on macOS. Add that directory to `PATH`, or run `python -m ghidriff` instead.
+
+This fork is not published on PyPI, so `pip install ghidriff` installs the upstream 1.0.0 release without the fixes made here. To use the fork, install it from git:
+
+```bash
+pip install git+https://github.com/eduardoghi/ghidriff
+```
 
 ### Windows
 
 ```powershell
-PS C:\Users\user> [System.Environment]::SetEnvironmentVariable('GHIDRA_INSTALL_DIR','C:\ghidra_10.2.3_PUBLIC_20230208\ghidra_10.2.3_PUBLIC')
+PS C:\Users\user> [System.Environment]::SetEnvironmentVariable('GHIDRA_INSTALL_DIR','C:\ghidra_12.0.4_PUBLIC')
 PS C:\Users\user> pip install ghidriff
 ```
 ### Linux / Mac
