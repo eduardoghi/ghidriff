@@ -458,28 +458,28 @@ end
         new_bin = pdiff['new_meta']['Program Name']
 
         for i, func in enumerate(pdiff['functions']['added']):
-            name = func['fullname'].replace('::', '-')
-            added.append(self._clean_md_header(name))
-
-            if max_section_funcs and i > max_section_funcs:
+            if max_section_funcs and i >= max_section_funcs:
                 msg = f"{len(pdiff['functions']['added']) - max_section_funcs}_more_added_funcs_omitted..."
                 added.append(self._clean_md_header(msg))
                 break
 
-        for i, func in enumerate(pdiff['functions']['deleted']):
             name = func['fullname'].replace('::', '-')
-            deleted.append(self._clean_md_header(name))
+            added.append(self._clean_md_header(name))
 
-            if max_section_funcs and i > max_section_funcs:
+        for i, func in enumerate(pdiff['functions']['deleted']):
+            if max_section_funcs and i >= max_section_funcs:
                 msg = f"{len(pdiff['functions']['deleted']) - max_section_funcs}_more_deleted_funcs_omitted..."
                 deleted.append(self._clean_md_header(msg))
                 break
+
+            name = func['fullname'].replace('::', '-')
+            deleted.append(self._clean_md_header(name))
 
         modified_code_funcs = [func for func in pdiff['functions']['modified'] if 'code' in func['diff_type']]
 
         for i, modified in enumerate(modified_code_funcs):
 
-            if max_section_funcs and i > max_section_funcs:
+            if max_section_funcs and i >= max_section_funcs:
                 modified_links.append(
                     f"{old_bin}<--{len(modified_code_funcs) - max_section_funcs}ommited-->{new_bin}")
                 break
@@ -705,7 +705,7 @@ pie showData
 
         for i, esym in enumerate(funcs['deleted']):
 
-            if i > max_section_funcs:
+            if i >= max_section_funcs:
                 md.new_header(2, 'Max Deleted Section Functions Reached Error')
                 md.new_line(f"{len(funcs['deleted']) - max_section_funcs} Deleted Functions Ommited...")
                 self.logger.warn(f'Max Deleted Section Functions {max_section_funcs} Reached')
@@ -732,7 +732,7 @@ pie showData
 
         for i, esym in enumerate(funcs['added']):
 
-            if i > max_section_funcs:
+            if i >= max_section_funcs:
                 md.new_header(2, 'Max Added Section Functions Reached Error')
                 md.new_line(f"{len(funcs['added']) - max_section_funcs} Added Functions Ommited...")
                 self.logger.warn(f'Max Added Section Functions {max_section_funcs} Reached')
@@ -760,7 +760,7 @@ pie showData
         modified_with_code = 0
         for modified in funcs['modified']:
 
-            if modified_with_code > max_section_funcs:
+            if modified_with_code >= max_section_funcs:
                 md.new_header(2, 'Max Modified Section Functions Reached Error')
                 md.new_line(f"{len(funcs['modified']) - max_section_funcs} Functions Ommited...")
                 self.logger.warn(f'Max Modified Section Functions {max_section_funcs} Reached')
@@ -823,7 +823,7 @@ pie showData
         else:
             for modified in funcs['modified']:
 
-                if modified_with_code > max_section_funcs:
+                if modified_with_code >= max_section_funcs:
                     md.new_header(2, 'Max Modified (No Code Changes) Section Functions Reached Error')
                     md.new_line(f"{len(funcs['modified']) - max_section_funcs} Functions Ommited...")
                     self.logger.warn(f'Max Modified Section Functions {max_section_funcs} Reached')

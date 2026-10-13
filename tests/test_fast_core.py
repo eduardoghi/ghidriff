@@ -681,3 +681,22 @@ def test_mermaid_flowchart_labels_new_function_with_its_param_count():
 
     assert 'TOrderPost-2-new' in flowchart
     assert 'TOrderPost-1-new' not in flowchart
+
+
+def test_mermaid_flowchart_lists_exactly_max_section_funcs():
+    pdiff = {
+        'old_meta': {'Program Name': 'old.bpl'},
+        'new_meta': {'Program Name': 'new.bpl'},
+        'functions': {
+            'added': [{'fullname': f'Added{i}'} for i in range(5)],
+            'deleted': [],
+            'modified': [],
+        },
+    }
+    engine = object.__new__(_FastEngine)
+
+    flowchart = engine.gen_mermaid_diff_flowchart(pdiff, max_section_funcs=2)
+
+    assert 'Added1' in flowchart
+    assert 'Added2' not in flowchart
+    assert '3_more_added_funcs_omitted' in flowchart
