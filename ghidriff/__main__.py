@@ -22,7 +22,7 @@ def main():
 
     if args.log_path == 'None':
         engine_log_path = None
-    if args.log_path == parser.get_default('log_path'):
+    elif args.log_path == parser.get_default('log_path'):
         engine_log_path = output_path / parser.get_default('log_path')
     else:
         engine_log_path = Path(args.log_path)
