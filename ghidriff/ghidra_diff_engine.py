@@ -2138,18 +2138,20 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
         unmatched_funcs_len = len(added_funcs) + len(deleted_funcs)
         total_funcs_len = p1.functionManager.functionCount + p2.functionManager.functionCount
         matched_funcs_len = total_funcs_len - unmatched_funcs_len
+        # matched_funcs_len counts the functions of both programs, but modified_funcs holds one
+        # entry per matched pair, so the similarity numbers are all counted in pairs.
         matched_funcs_with_code_changes_len = len(
             [mod_func for mod_func in modified_funcs if 'code' in mod_func['diff_type']])
         matched_funcs_with_non_code_changes_len = len(
             [mod_func for mod_func in modified_funcs if 'code' not in mod_func['diff_type']])
-        matched_funcs_no_changes_len = matched_funcs_len - \
+        matched_funcs_no_changes_len = len(matched) - \
             matched_funcs_with_code_changes_len - matched_funcs_with_non_code_changes_len
 
         match_func_similarity_percent = 0.0
         func_match_overall_percent = 0.0
 
-        if matched_funcs_len > 0:
-            match_func_similarity_percent = f'{((matched_funcs_no_changes_len / matched_funcs_len)*100):.4f}%'
+        if len(matched) > 0:
+            match_func_similarity_percent = f'{((matched_funcs_no_changes_len / len(matched))*100):.4f}%'
         if total_funcs_len > 0:
             func_match_overall_percent = f'{((matched_funcs_len / total_funcs_len)*100):.4f}%'
 
