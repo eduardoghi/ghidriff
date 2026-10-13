@@ -4,6 +4,8 @@ from types import ModuleType
 
 import pytest
 
+from ghidriff.bsim import SEED_MATCH_TYPES
+
 
 pytestmark = pytest.mark.fast
 
@@ -57,3 +59,7 @@ def test_sig_calling_called_hasher_uses_the_callers(correlators):
 
     assert same_callers == hasher(_Func(['puts'], ['main']))
     assert same_callers != other_callers
+
+
+def test_bsim_seeds_include_exact_structural_graph_matches(correlators):
+    assert correlators.StructuralGraphExactHasher.MATCH_TYPE in SEED_MATCH_TYPES

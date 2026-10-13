@@ -7,6 +7,11 @@
 
 from .utils import get_private_class, set_field
 
+# Match types reliable enough to seed BSim. The names must match the keys the
+# correlators store in `matches` (their MATCH_TYPE), not the hasher class names.
+SEED_MATCH_TYPES = ['SymbolsHash', 'ExactBytesFunctionHasher', 'ExactInstructionsFunctionHasher',
+                    'StructuralGraphExactHash', 'ExactMnemonicsFunctionHasher']
+
 
 def correlate_bsim(matches, p1, p2, p1_matches, p2_matches, monitor, logger=None, seed_match_types=None, p1_addr_set=None, p2_addr_set=None, enabled=True):
     """
@@ -78,8 +83,7 @@ def correlate_bsim(matches, p1, p2, p1_matches, p2_matches, monitor, logger=None
     match_set = session.getManualMatchSet()
 
     if seed_match_types is None:
-        seed_match_types = ['SymbolsHash', 'ExactBytesFunctionHasher', 'ExactInstructionsFunctionHasher',
-                            'StructuralGraphExactHasher', 'ExactMnemonicsFunctionHasher']
+        seed_match_types = SEED_MATCH_TYPES
 
     for match, m_types in matches.items():
         # if the match type is in the allowed seed_types create a seed match
