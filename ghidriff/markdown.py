@@ -218,6 +218,35 @@ class GhidriffMarkdown:
         return html
 
     @staticmethod
+    def _is_generated_name_noise(modified: dict, mods: set) -> bool:
+        """
+        Return True when a FUN_* function only changed in ways caused by Ghidra's generated names:
+        its own name, or callers and callees that are FUN_* themselves.
+        """
+
+        key = 'fullname' if modified['old']['external'] else 'name'
+        if not (modified['old'][key].startswith('FUN_') or modified['new'][key].startswith('FUN_')):
+            return False
+
+        ignore_called = False
+        ignore_calling = False
+
+        if len(modified['old']['called']) > 0 and len(modified['new']['called']) > 0:
+            called_set = set(modified['old']['called']).symmetric_difference(modified['new']['called'])
+            ignore_called = all('FUN_' in name for name in called_set)
+
+        if len(modified['old']['calling']) > 0 and len(modified['new']['calling']) > 0:
+            calling_set = set(modified['old']['calling']).symmetric_difference(modified['new']['calling'])
+            ignore_calling = all('FUN_' in name for name in calling_set)
+
+        diff_type = modified['diff_type']
+        return (
+            len(mods.difference(['name', 'fullname'])) == 0
+            or ('calling' in diff_type and ignore_calling)
+            or ('called' in diff_type and ignore_called)
+        )
+
+    @staticmethod
     def gen_sxs_html_from_pdiff(pdiff: dict) -> list:
         """
         pdiff: Standard pdiff from ghidriff
@@ -808,36 +837,11 @@ pie showData
 
                     if modified['old']['external']:
                         old_func_name = modified['old']['fullname']
-                        new_func_name = modified['old']['fullname']
                     else:
                         old_func_name = modified['old']['name']
-                        new_func_name = modified['old']['name']
 
-                    if old_func_name.startswith('FUN_') or new_func_name.startswith('FUN_'):
-
-                        ignore_called = False
-                        ignore_calling = False
-                        called_set = set()
-                        calling_set = set()
-
-                        if len(modified['old']['called']) > 0 and len(modified['new']['called']) > 0:
-                            called_set = set(modified['old']['called']).difference(modified['new']['called'])
-                            ignore_called = all('FUN_' in name for name in list(called_set))
-
-                        if len(modified['old']['calling']) > 0 and len(modified['new']['calling']) > 0:
-                            calling_set = set(modified['old']['calling']).difference(modified['new']['calling'])
-                            ignore_calling = all('FUN_' in name for name in list(calling_set))
-
-                        # skip name and fullname changes
-                        if len(mods.difference(['name', 'fullname'])) == 0:
-                            continue
-                        # if all called are FUN_ skip
-                        elif 'called' in modified['diff_type'] and 'calling' in modified['diff_type'] and ignore_called and ignore_calling:
-                            continue
-                        elif 'calling' in modified['diff_type'] and ignore_calling:
-                            continue
-                        elif 'called' in modified['diff_type'] and called_set:
-                            continue
+                    if self._is_generated_name_noise(modified, mods):
+                        continue
 
                     md.new_header(2, old_func_name)
 

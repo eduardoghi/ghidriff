@@ -594,3 +594,24 @@ def test_program_options_override_default_analysis_options():
 
     assert engine.user_set_analysis_option('Decompiler Parameter ID')
     assert not engine.user_set_analysis_option('Shared Return Calls.Assume Contiguous Functions Only')
+
+
+def _slight_mod(diff_type, old_called, new_called):
+    def esym(name, called):
+        return {'name': name, 'fullname': name, 'external': False, 'called': called, 'calling': ['main']}
+
+    return {'old': esym('FUN_00401000', old_called), 'new': esym('FUN_00402000', new_called), 'diff_type': diff_type}
+
+
+def test_fun_callee_renames_are_hidden_from_slight_mods():
+    modified = _slight_mod(['called'], ['FUN_00401100', 'puts'], ['FUN_00402100', 'puts'])
+
+    assert GhidraDiffEngine._is_generated_name_noise(modified, {'called'})
+
+
+def test_real_callee_changes_stay_in_slight_mods():
+    removed = _slight_mod(['called'], ['FUN_00401100', 'puts'], ['FUN_00402100'])
+    added = _slight_mod(['called'], ['FUN_00401100'], ['FUN_00402100', 'puts'])
+
+    assert not GhidraDiffEngine._is_generated_name_noise(removed, {'called'})
+    assert not GhidraDiffEngine._is_generated_name_noise(added, {'called'})
