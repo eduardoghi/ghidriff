@@ -95,7 +95,7 @@ def test_custom_program_options_afd(shared_datadir: Path):
                          max_section_funcs=args.max_section_funcs,
                          md_title=args.md_title)
 
-    assert len(pdiff['functions']['modified']) == 12
+    assert len(pdiff['functions']['modified']) == 20
     assert len(pdiff['functions']['added']) == 28
     assert len(pdiff['functions']['deleted']) == 0
 

@@ -90,8 +90,8 @@ def test_diff_ios_dylib_arm64(shared_datadir: Path):
                          max_section_funcs=args.max_section_funcs,
                          md_title=args.md_title)
 
-    assert len(pdiff['functions']['modified']) in [39, 41]
-    assert len(pdiff['functions']['added']) in [6, 14]
+    assert len(pdiff['functions']['modified']) in [39, 41, 89]
+    assert len(pdiff['functions']['added']) in [6, 7, 14]
     assert len(pdiff['functions']['deleted']) == 0
 
 

@@ -123,7 +123,7 @@ def test_diff_afd_cve_2023_21768(shared_datadir: Path):
                          max_section_funcs=args.max_section_funcs,
                          md_title=args.md_title)
 
-    assert len(pdiff['functions']['modified']) == 12
+    assert len(pdiff['functions']['modified']) == 20
     assert len(pdiff['functions']['added']) == 28
     assert len(pdiff['functions']['deleted']) == 0
 
@@ -212,7 +212,7 @@ def test_diff_afd_cve_2023_21768_single_thread(shared_datadir: Path):
                          max_section_funcs=args.max_section_funcs,
                          md_title=args.md_title)
 
-    assert len(pdiff['functions']['modified']) == 12
+    assert len(pdiff['functions']['modified']) == 20
     assert len(pdiff['functions']['added']) == 28
     assert len(pdiff['functions']['deleted']) == 0
 

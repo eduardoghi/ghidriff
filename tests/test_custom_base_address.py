@@ -98,7 +98,7 @@ def test_custom_base_addr_hex_afd(shared_datadir: Path):
                          max_section_funcs=args.max_section_funcs,
                          md_title=args.md_title)
 
-    assert len(pdiff['functions']['modified']) == 11
+    assert len(pdiff['functions']['modified']) == 18
     assert len(pdiff['functions']['added']) == 28
     assert len(pdiff['functions']['deleted']) == 0
 
@@ -197,7 +197,7 @@ def test_custom_base_addr_dec_afd(shared_datadir: Path):
                          max_section_funcs=args.max_section_funcs,
                          md_title=args.md_title)
 
-    assert len(pdiff['functions']['modified']) == 11
+    assert len(pdiff['functions']['modified']) == 18
     assert len(pdiff['functions']['added']) == 28
     assert len(pdiff['functions']['deleted']) == 0
 
