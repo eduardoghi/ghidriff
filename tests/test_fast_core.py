@@ -579,3 +579,18 @@ def test_normalize_ghidra_decomp_address_labels():
         'switchD_1_caseD_2: switchdataD_0;\n',
         'switchD_0_caseD_3: joined_r0x0;\n',
     ]
+
+
+def test_default_analysis_options_apply_without_program_options():
+    engine = object.__new__(_FastEngine)
+    engine.program_options = None
+
+    assert not engine.user_set_analysis_option('Decompiler Parameter ID')
+
+
+def test_program_options_override_default_analysis_options():
+    engine = object.__new__(_FastEngine)
+    engine.program_options = {'program_options': {'Analyzers': {'Decompiler Parameter ID': False}}}
+
+    assert engine.user_set_analysis_option('Decompiler Parameter ID')
+    assert not engine.user_set_analysis_option('Shared Return Calls.Assume Contiguous Functions Only')

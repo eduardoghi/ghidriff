@@ -1229,14 +1229,14 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
                 # handle large binaries more efficiently
                 # see ghidra/issues/4573 (turn off feature Shared Return Calls )
                 if program and program.getFunctionManager().getFunctionCount() > 1000:
-                    if self.program_options is not None and self.program_options['program_options']['Analyzers'].get('Shared Return Calls.Assume Contiguous Functions Only') is None:
+                    if not self.user_set_analysis_option('Shared Return Calls.Assume Contiguous Functions Only'):
                         self.logger.warn(f"Turning off 'Shared Return Calls' for {program}")
                         self.set_analysis_option(
                             program, 'Shared Return Calls.Assume Contiguous Functions Only', False)
 
                 # This really helps with decompilation, was turned off by default in 10.x
                 # Will set by default unless specified by user
-                if self.program_options is not None and self.program_options['program_options']['Analyzers'].get('Decompiler Parameter ID') is None:
+                if not self.user_set_analysis_option('Decompiler Parameter ID'):
                     self.set_analysis_option(program, 'Decompiler Parameter ID', True)
 
                 if self.program_options:
@@ -1392,6 +1392,13 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
             options[propName] = prog_options.getValueAsString(propName)
 
         return options
+
+    def user_set_analysis_option(self, option_name: str) -> bool:
+        """Return True when --program-options sets the analyzer option, so ghidriff keeps its value."""
+
+        if self.program_options is None:
+            return False
+        return option_name in self.program_options['program_options']['Analyzers']
 
     def set_analysis_option(
         self,
