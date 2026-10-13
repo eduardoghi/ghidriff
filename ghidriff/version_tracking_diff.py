@@ -210,7 +210,8 @@ class VersionTrackingDiff(GhidraDiffEngine):
         self.logger.info(f'p2 missing = {len(p2_missing)}')
 
         # Debug umatched
-        if self.logger.level == 10:  # debug level
+        # Prints to stdout and is slow, so it follows the console level, not --file-log-level.
+        if getattr(self, 'console_log_level', self.logger.level) == 10:  # debug level
             self.debug_function_hasher(unmatched, func_correlators, p1, p2)
 
         # Find external function unmatched and matched

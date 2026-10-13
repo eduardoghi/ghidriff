@@ -505,6 +505,8 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
 
         logger = logging.getLogger(__package__)
         logger.setLevel(level)
+        # add_log_to_path can lower the logger level for the file, so keep the console level.
+        self.console_log_level = level
 
         return logger
 

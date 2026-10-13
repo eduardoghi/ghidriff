@@ -671,6 +671,7 @@ def test_file_log_level_is_independent_of_console_level(tmp_path: Path):
             handler.close()
 
     assert 'debug line' in log_path.read_text()
+    assert engine.console_log_level == logging.WARNING
 
 
 def test_project_location_rejects_hidden_path_elements(tmp_path: Path):
