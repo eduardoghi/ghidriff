@@ -198,21 +198,6 @@ class StructualGraphDiff(GhidraDiffEngine):
         for sym in p2_modified:
             self.logger.info(sym)
 
-        # Find modified functions based on compare_key
-        for sym in p1.getSymbolTable().getDefinedSymbols():
-
-            if "function".lower() in sym.getSymbolType().toString().lower():
-                func = p1.functionManager.getFunctionAt(sym.getAddress())
-                if (_get_compare_key2(sym, func)) in modified_old:
-                    p1_modified.append(sym)
-
-        for sym in p2.getSymbolTable().getDefinedSymbols():
-
-            if "function".lower() in sym.getSymbolType().toString().lower():
-                func = p2.functionManager.getFunctionAt(sym.getAddress())
-                if (_get_compare_key2(sym, func)) in modified_new:
-                    p2_modified.append(sym)
-
         matched = []
         unmatched = []
         matches = []
@@ -258,6 +243,7 @@ class StructualGraphDiff(GhidraDiffEngine):
                                 matched.append(sym)
                                 matched.append(sym2)
                                 matches.append([sym, sym2, [match_type]])
+                                break
 
                 else:
                     sym2 = func2.getSymbol()
