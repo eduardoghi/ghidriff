@@ -30,7 +30,19 @@ def find_matching_ref(ref_type, refs_from):
     return None
 
 
-def find_implied_match(src_func: "ghidra.program.model.listing.Function", dst_func: "ghidra.program.model.listing.Function", ref: "ghidra.program.model.symbol.Reference"):
+def address_correlation(src_func: "ghidra.program.model.listing.Function", dst_func: "ghidra.program.model.listing.Function"):
+    """
+    Correlate addresses between two matched functions.
+
+    The correlation hashes the instructions of both functions, so build it once per pair.
+    """
+
+    from ghidra.feature.vt.api.correlator.address import VTHashedFunctionAddressCorrelation
+
+    return VTHashedFunctionAddressCorrelation(src_func, dst_func)
+
+
+def find_implied_match(src_func: "ghidra.program.model.listing.Function", dst_func: "ghidra.program.model.listing.Function", ref: "ghidra.program.model.symbol.Reference", correlation):
 
     # // Get the reference type of the passed in reference and make sure it is either a call or
     # // data reference
@@ -54,15 +66,12 @@ def find_implied_match(src_func: "ghidra.program.model.listing.Function", dst_fu
 
     src_ref_from_addr = ref.getFromAddress()
 
-    from ghidra.feature.vt.api.correlator.address import VTHashedFunctionAddressCorrelation
     from ghidra.util.task import ConsoleTaskMonitor
     from ghidra.program.model.symbol import RefType
 
     monitor = ConsoleTaskMonitor()
 
-    cor = VTHashedFunctionAddressCorrelation(src_func, dst_func)
-
-    addr_range = cor.getCorrelatedDestinationRange(src_ref_from_addr, monitor)
+    addr_range = correlation.getCorrelatedDestinationRange(src_ref_from_addr, monitor)
     if addr_range is None:
         return None
 
@@ -100,13 +109,14 @@ def find_implied_matches(src_func: "ghidra.program.model.listing.Function", dst_
     # Ghidra/Features/VersionTracking/src/main/java/ghidra/feature/vt/gui/util/ImpliedMatchUtils.java
     """
     implied_matches = []
+    correlation = address_correlation(src_func, dst_func)
 
     ref_man = src_func.getProgram().getReferenceManager()
     body = src_func.getBody()
     for addr in ref_man.getReferenceSourceIterator(body, True):
         refs_from = ref_man.getReferencesFrom(addr)
         for ref in refs_from:
-            implied_match = find_implied_match(src_func, dst_func, ref)
+            implied_match = find_implied_match(src_func, dst_func, ref, correlation)
             if implied_match is not None:
                 # print(implied_match)
                 implied_matches.append(implied_match)
@@ -120,7 +130,7 @@ def correlate_implied_matches(matches, p1_missing, p2_missing, p1_matches, p2_ma
     if the calling function has been accepted, then accept the unmatched called function
     """
 
-    logger.info(f'Running correlator: Implied matches on p1:{len(p1_missing)} p2:{len(p1_missing)}')
+    logger.info(f'Running correlator: Implied matches on p1:{len(p1_missing)} p2:{len(p2_missing)}')
 
 
     # build list of function entry points that have already been matched
@@ -157,7 +167,9 @@ def correlate_implied_matches(matches, p1_missing, p2_missing, p1_matches, p2_ma
     potential_calling_funcs = list(set(potential_calling_funcs))
 
     # find all matches that might provide an implied match for unmatched functions
-    potential_accepted_matches = []
+    # Build the key list once: rebuilding it per caller made this loop quadratic on large binaries.
+    match_keys = list(matches.keys())
+    match_indexes = {}
     for func in potential_calling_funcs:
         match_index = None
         if matched_src_addrs.get(func.getEntryPoint()) is not None:
@@ -166,10 +178,14 @@ def correlate_implied_matches(matches, p1_missing, p2_missing, p1_matches, p2_ma
             match_index = matched_dst_addrs.get(func.getEntryPoint())
 
         if match_index is not None:
-            match = list(matches.keys())[match_index]
-            f1 = p1.functionManager.getFunctionAt(match[0])
-            f2 = p2.functionManager.getFunctionAt(match[1])
-            potential_accepted_matches.append((f1, f2))
+            match_indexes[match_index] = None
+
+    potential_accepted_matches = []
+    for match_index in match_indexes:
+        match = match_keys[match_index]
+        f1 = p1.functionManager.getFunctionAt(match[0])
+        f2 = p2.functionManager.getFunctionAt(match[1])
+        potential_accepted_matches.append((f1, f2))
 
     recovered = 0
     completed = 0
