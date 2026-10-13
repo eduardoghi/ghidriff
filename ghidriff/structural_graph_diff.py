@@ -261,7 +261,7 @@ class StructualGraphDiff(GhidraDiffEngine):
 
             sym2 = DiffUtility.getSymbol(sym, p2)
 
-            if sym2 and sym.getName(True) == sym2.getName(True):
+            if sym2 and sym2 not in matched and sym.getName(True) == sym2.getName(True):
                 found = True
                 match_type = 'Direct'
                 self.logger.info(f"direct getsymbol match {sym.getName(True)} {sym2.getName(True)}")
@@ -305,7 +305,7 @@ class StructualGraphDiff(GhidraDiffEngine):
 
             sym2 = DiffUtility.getSymbol(sym, p1)
 
-            if sym2 and sym.getName(True) == sym2.getName(True):
+            if sym2 and sym2 not in matched and sym.getName(True) == sym2.getName(True):
                 found = True
                 match_type = 'Direct'
                 self.logger.info(f"direct getsymbol match {sym.getName(True)} {sym2.getName(True)}")
