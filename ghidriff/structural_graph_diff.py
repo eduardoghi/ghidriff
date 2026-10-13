@@ -276,7 +276,8 @@ class StructualGraphDiff(GhidraDiffEngine):
                     func2 = sym2.getProgram().functionManager.getFunctionAt(sym2.getAddress())
                     ck2 = _get_compare_key(sym2, func2)
 
-                    if ck1[4] == ck2[4]:
+                    # Thunks and functions under 10 bytes get an empty hash, which says nothing.
+                    if ck1[4] and ck1[4] == ck2[4]:
                         found = True
                         match_type = 'MnemonicOrdered:Hash'
                         self.logger.info(f"{match_type} match {sym.getName(True)} {sym2.getName(True)}")
