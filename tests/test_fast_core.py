@@ -453,6 +453,25 @@ def test_name_matches_skip_diff_when_instructions_match():
     assert GhidraDiffEngine.syms_need_diff(engine, old, new, ["SymbolsHash"], []) is False
 
 
+def test_pairs_sent_by_the_mask_check_are_dropped_when_only_the_address_changed():
+    engine = object.__new__(_FastEngine)
+    engine.min_func_len = 10
+    old = _FakeBodySymbol(_FakeBodyProgram(1, ["adrp x0,0x22d710000", "RET"]))
+    new = _FakeBodySymbol(_FakeBodyProgram(2, ["adrp x0,0x22db58000", "RET"]))
+
+    assert GhidraDiffEngine.syms_need_diff(engine, old, new, ["SymbolsHash"], []) is True
+    assert engine.only_moved(old, new, ["address"])
+    assert not engine.only_moved(old, new, ["code", "address"])
+
+
+def test_pairs_diffed_for_other_reasons_keep_address_only_changes():
+    engine = object.__new__(_FastEngine)
+    old = _FakeBodySymbol(_FakeBodyProgram(1, ["RET"]))
+    new = _FakeBodySymbol(_FakeBodyProgram(2, ["RET"]))
+
+    assert not engine.only_moved(old, new, ["address"])
+
+
 class _FakeSymbolTable:
     def __init__(self, count):
         self.numSymbols = count

@@ -1716,13 +1716,32 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
                 # comparison, and a match by name alone says nothing about the body. Compare the
                 # instructions with moved addresses masked out.
                 memo = self.__dict__.setdefault('need_diff_memo', {})
-                key = (str(sym.getProgram().getUniqueProgramID()), sym.getID(),
-                       str(sym2.getProgram().getUniqueProgramID()), sym2.getID())
+                key = self.sym_pair_key(sym, sym2)
                 if key not in memo:
                     memo[key] = self.masked_instructions(func) != self.masked_instructions(func2)
                 need_diff = memo[key]
 
         return need_diff
+
+    @staticmethod
+    def sym_pair_key(sym, sym2) -> tuple:
+        return (str(sym.getProgram().getUniqueProgramID()), sym.getID(),
+                str(sym2.getProgram().getUniqueProgramID()), sym2.getID())
+
+    def only_moved(self, sym, sym2, diff_type: list) -> bool:
+        """
+        Return True when the masked instruction check sent a pair to the diff and the function
+        only moved.
+
+        Such a pair has the same size and reference count, and its instructions differ in
+        something the mask can't tell apart from a moved address, such as an AArch64 adrp page
+        outside the image and the low offset in the ldr or add after it. If the decompiled code,
+        the calls and the signature match, the only change is the address.
+        """
+
+        if not set(diff_type) <= {'address'}:
+            return False
+        return self.__dict__.get('need_diff_memo', {}).get(self.sym_pair_key(sym, sym2), False)
 
     def gen_proj_bin_name_from_path(self, path: Path):
         """
@@ -2119,6 +2138,10 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
             # if no differences were found, there should not be a match (see modified func ident)
             if len(diff_type) == 0:
                 self.logger.warn(f'no diff: {sym} {sym2} {match_types}')
+                continue
+
+            if self.only_moved(sym, sym2, diff_type):
+                self.logger.debug(f'only moved: {sym} {sym2} {match_types}')
                 continue
 
             all_diff_types.extend(diff_type)
