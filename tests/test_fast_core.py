@@ -460,8 +460,22 @@ def test_pairs_sent_by_the_mask_check_are_dropped_when_only_the_address_changed(
     new = _FakeBodySymbol(_FakeBodyProgram(2, ["adrp x0,0x22db58000", "RET"]))
 
     assert GhidraDiffEngine.syms_need_diff(engine, old, new, ["SymbolsHash"], []) is True
-    assert engine.only_moved(old, new, ["address"])
-    assert not engine.only_moved(old, new, ["code", "address"])
+    assert engine.only_moved(old, new, _moved_esym(), _moved_esym(), ["address"])
+    assert not engine.only_moved(old, new, _moved_esym(), _moved_esym(), ["code", "address"])
+
+
+def test_default_names_that_follow_the_address_count_as_moved():
+    engine = object.__new__(_FastEngine)
+    engine.min_func_len = 10
+    old = _FakeBodySymbol(_FakeBodyProgram(1, ["adrp x0,0x22d710000", "RET"]))
+    new = _FakeBodySymbol(_FakeBodyProgram(2, ["adrp x0,0x22db58000", "RET"]))
+    GhidraDiffEngine.syms_need_diff(engine, old, new, ["SymbolsHash"], [])
+    esym = _moved_esym('FUN_1f1d4db60', calling=['FUN_1f1d00000', 'main'])
+    esym2 = _moved_esym('FUN_1f1e4db60', calling=['FUN_1f1e00000', 'main'])
+    renamed = _moved_esym('FUN_1f1e4db60', calling=['init', 'main'])
+
+    assert engine.only_moved(old, new, esym, esym2, ['name', 'fullname', 'sig', 'address', 'calling'])
+    assert not engine.only_moved(old, new, esym, renamed, ['name', 'fullname', 'sig', 'address', 'calling'])
 
 
 def test_pairs_diffed_for_other_reasons_keep_address_only_changes():
@@ -469,7 +483,11 @@ def test_pairs_diffed_for_other_reasons_keep_address_only_changes():
     old = _FakeBodySymbol(_FakeBodyProgram(1, ["RET"]))
     new = _FakeBodySymbol(_FakeBodyProgram(2, ["RET"]))
 
-    assert not engine.only_moved(old, new, ["address"])
+    assert not engine.only_moved(old, new, _moved_esym(), _moved_esym(), ["address"])
+
+
+def _moved_esym(name='_cc_demo', calling=()):
+    return {'fullname': name, 'sig': f'undefined {name}(void)', 'calling': list(calling), 'called': []}
 
 
 class _FakeSymbolTable:

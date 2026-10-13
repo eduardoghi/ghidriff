@@ -1728,20 +1728,33 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
         return (str(sym.getProgram().getUniqueProgramID()), sym.getID(),
                 str(sym2.getProgram().getUniqueProgramID()), sym2.getID())
 
-    def only_moved(self, sym, sym2, diff_type: list) -> bool:
+    def only_moved(self, sym, sym2, esym: dict, esym2: dict, diff_type: list) -> bool:
         """
         Return True when the masked instruction check sent a pair to the diff and the function
         only moved.
 
         Such a pair has the same size and reference count, and its instructions differ in
         something the mask can't tell apart from a moved address, such as an AArch64 adrp page
-        outside the image and the low offset in the ldr or add after it. If the decompiled code,
-        the calls and the signature match, the only change is the address.
+        outside the image and the low offset in the ldr or add after it. If the decompiled code
+        matches and the names, signature, callers and callees differ only in Ghidra's default
+        names (FUN_1f1d4db60 and the like), the only change is the address.
         """
 
-        if not set(diff_type) <= {'address'}:
+        if not self.__dict__.get('need_diff_memo', {}).get(self.sym_pair_key(sym, sym2), False):
             return False
-        return self.__dict__.get('need_diff_memo', {}).get(self.sym_pair_key(sym, sym2), False)
+
+        def strip(name: str) -> str:
+            return self.DEFAULT_LABEL.sub(r'\1_', name)
+
+        moved = {'address'}
+        if strip(esym['fullname']) == strip(esym2['fullname']):
+            moved.update(('name', 'fullname'))
+        if strip(esym['sig']) == strip(esym2['sig']):
+            moved.add('sig')
+        for key in ('calling', 'called'):
+            if sorted(map(strip, esym[key])) == sorted(map(strip, esym2[key])):
+                moved.add(key)
+        return set(diff_type) <= moved
 
     def gen_proj_bin_name_from_path(self, path: Path):
         """
@@ -2140,7 +2153,7 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
                 self.logger.warn(f'no diff: {sym} {sym2} {match_types}')
                 continue
 
-            if self.only_moved(sym, sym2, diff_type):
+            if self.only_moved(sym, sym2, ematch_1, ematch_2, diff_type):
                 self.logger.debug(f'only moved: {sym} {sym2} {match_types}')
                 continue
 
