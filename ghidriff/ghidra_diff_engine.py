@@ -165,6 +165,9 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
         self.args = args
 
         # Setup decompiler interface
+        # Pool is keyed by program identity, not prog.name: two diffed
+        # binaries may share a basename (e.g. old/Wiz8.exe vs new/Wiz8.exe),
+        # which imports as two distinct programs both named 'Wiz8.exe'.
         self.decompilers = {}
 
         self.project: "ghidra.base.project.GhidraProject" = None
@@ -516,7 +519,7 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
             timeout = getattr(self, 'decompiler_timeout', 60)
 
         # key = f'{sym.iD}-{sym.program.name}-{get_decomp_info}-{use_calling_counts}'
-        key = f'{sym.iD}-{sym.program.name}'
+        key = f'{sym.iD}-{self._program_key(sym.program)}'
 
         if key not in self.esym_memo:
 
@@ -943,35 +946,41 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
         p1_options.setMaxPayloadMBytes(100)
         p2_options.setMaxPayloadMBytes(100)
 
-        if self.threaded:
-            decompiler_count = 2 * self.max_workers
-            self.decompilers.setdefault(p1.name, {}).setdefault('available', Queue())
-            self.decompilers.setdefault(p2.name, {}).setdefault('available', Queue())
-            for i in range(self.max_workers):
-                self.decompilers.setdefault(p1.name, {}).setdefault(i, DecompInterface())
-                self.decompilers.setdefault(p2.name, {}).setdefault(i, DecompInterface())
-                self.decompilers[p1.name][i].setOptions(p1_options)
-                self.decompilers[p2.name][i].setOptions(p2_options)
-                self.decompilers[p1.name][i].openProgram(p1)
-                self.decompilers[p2.name][i].openProgram(p2)
-                self.decompilers[p1.name]['available'].put(i)
-                self.decompilers[p2.name]['available'].put(i)
-        else:
-            decompiler_count = 2
-            self.decompilers.setdefault(p1.name, {}).setdefault('available', Queue())
-            self.decompilers.setdefault(p2.name, {}).setdefault('available', Queue())
-            self.decompilers.setdefault(p1.name, {}).setdefault(0, DecompInterface())
-            self.decompilers.setdefault(p2.name, {}).setdefault(0, DecompInterface())
-            self.decompilers[p1.name][0].setOptions(p1_options)
-            self.decompilers[p2.name][0].setOptions(p2_options)
-            self.decompilers[p1.name][0].openProgram(p1)
-            self.decompilers[p2.name][0].openProgram(p2)
-            self.decompilers[p1.name]['available'].put(0)
-            self.decompilers[p2.name]['available'].put(0)
+        per_prog = self.max_workers if self.threaded else 1
+        decompiler_count = 0
+        for prog, options in ((p1, p1_options), (p2, p2_options)):
+            key = self._program_key(prog)
+            pool = self.decompilers.setdefault(key, {'available': Queue()})
+            for i in range(per_prog):
+                if i in pool:
+                    # same program object on both sides
+                    continue
+                decomp = DecompInterface()
+                decomp.setOptions(options)
+                decomp.openProgram(prog)
+                pool[i] = decomp
+                pool['available'].put(i)
+                decompiler_count += 1
 
         self.logger.info(f'Setup {decompiler_count} decompliers')
 
         return True
+
+    @staticmethod
+    def _program_key(prog: "ghidra.program.model.listing.Program"):
+        """
+        Return a stable identity key for prog.
+
+        Program names are not unique: two diffed binaries may share a basename
+        and import as distinct programs both reporting the same prog.name.
+        Prefer the program's domain file id, falling back to object identity.
+        """
+        domain_file = prog.getDomainFile()
+        if domain_file is not None:
+            file_id = domain_file.getFileID()
+            if file_id is not None:
+                return ('fileid', str(file_id))
+        return ('identity', id(prog))
 
     def shutdown_decompilers(
         self,
@@ -982,13 +991,10 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
         Shutdown decompliers
         """
 
-        if self.threaded:
-            for i in range(self.max_workers):
-                self.decompilers[p1.name][i].closeProgram()
-                self.decompilers[p2.name][i].closeProgram()
-        else:
-            self.decompilers[p1.name][0].closeProgram()
-            self.decompilers[p2.name][0].closeProgram()
+        for key in {self._program_key(p1), self._program_key(p2)}:
+            for i, decomp in self.decompilers.get(key, {}).items():
+                if i != 'available':
+                    decomp.closeProgram()
 
         self.decompilers = {}
 
@@ -1004,9 +1010,10 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
         code = ''
         error = ''
         monitor = ConsoleTaskMonitor()
-        decomp_id = self.decompilers[prog.name]['available'].get()
+        pool = self.decompilers[self._program_key(prog)]
+        decomp_id = pool['available'].get()
         try:
-            results: 'ghidra.app.decompiler.DecompileResults' = self.decompilers[prog.name][decomp_id].decompileFunction(
+            results: 'ghidra.app.decompiler.DecompileResults' = pool[decomp_id].decompileFunction(
                 func, timeout, monitor)
 
             error = results.getErrorMessage()
@@ -1015,7 +1022,7 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
             else:
                 error = f'Error: Decompile error: {error}'
         finally:
-            self.decompilers[prog.name]['available'].put(decomp_id)
+            pool['available'].put(decomp_id)
 
         return error, code
 
@@ -1685,7 +1692,7 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
 
         """
 
-        default_labels = ['LAB', 'DAT', 'SUB', 'UNK', 'EXT', 'FUN_', 'OFF_']
+        default_labels = ['LAB', 'DAT', 'SUB', 'UNK', 'EXT', 'FUN', 'OFF']
 
         matches = {}
         for i, line in enumerate(code):
@@ -1778,8 +1785,9 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
         else:
             p2 = self.project.openProgram("/", p2_name, False)
 
-        pdiff['program_options'][p1.name] = self.get_all_program_options(p1)
-        pdiff['program_options'][p2.name] = self.get_all_program_options(p2)
+        # key by project bin name, not prog.name: two inputs can share a basename
+        pdiff['program_options'][p1_name] = self.get_all_program_options(p1)
+        pdiff['program_options'][p2_name] = self.get_all_program_options(p2)
 
         self.project.close(p1)
         self.project.close(p2)

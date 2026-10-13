@@ -487,3 +487,41 @@ def test_preflight_rejects_large_symbol_count_mismatch_with_actionable_error():
             _FakePreflightProgram("old", "x86:LE:64:default", 100),
             _FakePreflightProgram("new", "x86:LE:64:default", 5000),
         )
+
+
+class _FakeDomainFile:
+    def __init__(self, file_id):
+        self._file_id = file_id
+
+    def getFileID(self):
+        return self._file_id
+
+
+class _FakeKeyedProgram:
+    def __init__(self, name, file_id):
+        self.name = name
+        self._domain_file = _FakeDomainFile(file_id)
+
+    def getDomainFile(self):
+        return self._domain_file
+
+
+def test_program_key_distinguishes_same_named_programs():
+    p1 = _FakeKeyedProgram('same.exe', 'file-id-old')
+    p2 = _FakeKeyedProgram('same.exe', 'file-id-new')
+
+    assert GhidraDiffEngine._program_key(p1) != GhidraDiffEngine._program_key(p2)
+
+
+def test_program_key_stable_for_same_program():
+    p1 = _FakeKeyedProgram('same.exe', 'file-id-old')
+
+    assert GhidraDiffEngine._program_key(p1) == GhidraDiffEngine._program_key(p1)
+
+
+def test_program_key_falls_back_to_object_identity():
+    p1 = SimpleNamespace(name='same.exe', getDomainFile=lambda: None)
+    p2 = SimpleNamespace(name='same.exe', getDomainFile=lambda: None)
+
+    assert GhidraDiffEngine._program_key(p1) == GhidraDiffEngine._program_key(p1)
+    assert GhidraDiffEngine._program_key(p1) != GhidraDiffEngine._program_key(p2)
