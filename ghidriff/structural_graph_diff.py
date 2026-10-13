@@ -109,7 +109,7 @@ class StructualGraphDiff(GhidraDiffEngine):
                 self.logger.info("Name + Paramcount {} {}".format(sym.getName(True), sym2.getName(True)))
                 found = True
                 match_type = 'Name:Param'
-            if esym2['name'] == esym['name'] and esym2['length'] == esym['length']:
+            elif esym2['name'] == esym['name'] and esym2['length'] == esym['length']:
                 self.logger.info("Name + length {} {}".format(sym.getName(True), sym2.getName(True)))
                 found = True
                 match_type = 'Name:Length'
