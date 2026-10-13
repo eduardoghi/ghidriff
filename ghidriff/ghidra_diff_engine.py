@@ -1696,6 +1696,15 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
         r'(?![0-9A-Za-z_])'
     )
 
+    # Ghidra's PE loader comments each export as "<rva>  <ordinal>  <name>",
+    # wrapping a long name onto the next line. The ordinal and name are export
+    # facts; the RVA only restates placement.
+    EXPORT_COMMENT_RVA = re.compile(r'(?<![0-9A-Za-z_])0x[0-9a-fA-F]+(?=  \d+(?:  \S|\s*$))')
+    # Decompiler warnings locate themselves by address ("Could not recover
+    # jumptable at 0x...", "Removing unreachable block (ram,0x...)").
+    WARNING_COMMENT = re.compile(r'/\* WARNING: ')
+    WARNING_ADDRESS = re.compile(r'(?<![0-9A-Za-z_])0x[0-9a-fA-F]+(?![0-9A-Za-z_])')
+
     def normalize_ghidra_decomp(self, code: list):
         """
         Normalize some of the dynamic labels to simplify the diff
@@ -1726,7 +1735,11 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
 
         for i, line in enumerate(code):
             line = GhidraDiffEngine.DEFAULT_LABEL.sub(rename, line)
-            code[i] = GhidraDiffEngine.ADDRESS_LABEL.sub(rename_address_label, line)
+            line = GhidraDiffEngine.ADDRESS_LABEL.sub(rename_address_label, line)
+            line = GhidraDiffEngine.EXPORT_COMMENT_RVA.sub('RVA', line)
+            if GhidraDiffEngine.WARNING_COMMENT.search(line):
+                line = GhidraDiffEngine.WARNING_ADDRESS.sub('ADDR', line)
+            code[i] = line
 
     def remove_code_sig(self, code, split_char='{'):
         """
