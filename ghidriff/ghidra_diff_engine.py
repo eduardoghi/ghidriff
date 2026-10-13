@@ -502,15 +502,18 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
 
         return text
 
-    def enhance_sym(self, sym: 'ghidra.program.model.symbol.Symbol', thread_id: int = 0, timeout: int = 15, get_decomp_info: bool = False, use_calling_counts: bool = False) -> dict:
+    def enhance_sym(self, sym: 'ghidra.program.model.symbol.Symbol', thread_id: int = 0, timeout: int = None, get_decomp_info: bool = False, use_calling_counts: bool = False) -> dict:
         """
         Standardize enhanced symbol. Use esym_memo to speed things up.
         esyms are memoized and can be later just read from memory
         Inspired by Ghidra/Features/VersionTracking/src/main/java/ghidra/feature/vt/api/main/VTMatchInfo.java
-        timeout is for decompiler. -1 is infinite, and too long
+        timeout is for decompiler. -1 is infinite, and too long. None uses --decompiler-timeout.
         """
 
         from ghidra.program.model.symbol import SymbolType
+
+        if timeout is None:
+            timeout = getattr(self, 'decompiler_timeout', 60)
 
         # key = f'{sym.iD}-{sym.program.name}-{get_decomp_info}-{use_calling_counts}'
         key = f'{sym.iD}-{sym.program.name}'
