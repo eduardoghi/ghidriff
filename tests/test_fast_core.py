@@ -615,3 +615,19 @@ def test_real_callee_changes_stay_in_slight_mods():
 
     assert not GhidraDiffEngine._is_generated_name_noise(removed, {'called'})
     assert not GhidraDiffEngine._is_generated_name_noise(added, {'called'})
+
+
+def test_file_log_level_is_independent_of_console_level(tmp_path: Path):
+    engine = object.__new__(_FastEngine)
+    engine.logger = engine.setup_logger('WARNING')
+    log_path = tmp_path / 'ghidriff.log'
+
+    engine.add_log_to_path(log_path, 'DEBUG')
+    try:
+        engine.logger.debug('debug line')
+    finally:
+        for handler in list(engine.logger.handlers):
+            engine.logger.removeHandler(handler)
+            handler.close()
+
+    assert 'debug line' in log_path.read_text()

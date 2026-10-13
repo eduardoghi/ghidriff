@@ -105,10 +105,10 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
 
         if engine_log_path:
             # send application log to output path
-            self.add_log_to_path(engine_log_path, engine_log_level)
+            self.add_log_to_path(engine_log_path, engine_file_log_level)
             self.logger.info(f'Engine File Log:  {engine_log_path} {engine_file_log_level}')
         else:
-            self.logger.warn('Engine File Log: {engine_log_path}')
+            self.logger.warn(f'Engine File Log: {engine_log_path}')
 
         # Init PyGhidra
         launcher = HeadlessLoggingPyGhidraLauncher(verbose=verbose, log_path=engine_log_path)
@@ -472,10 +472,20 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
         """
         Setup Class Instance Logger
         """
-        logging.basicConfig(
-            format='%(levelname)-5s| %(name)s | %(message)s',
-            datefmt='%H:%M:%S'
-        )
+        level = logging._checkLevel(level)
+        root = logging.getLogger()
+
+        # Same handler basicConfig would add, but with the console level on the handler instead
+        # of the logger, so a lower --file-log-level still reaches the file. An application that
+        # configured logging itself keeps its own handlers.
+        console = next((h for h in root.handlers if getattr(h, 'ghidriff_console', False)), None)
+        if console is None and not root.handlers:
+            console = logging.StreamHandler()
+            console.setFormatter(logging.Formatter('%(levelname)-5s| %(name)s | %(message)s', '%H:%M:%S'))
+            console.ghidriff_console = True
+            root.addHandler(console)
+        if console is not None:
+            console.setLevel(level)
 
         logger = logging.getLogger(__package__)
         logger.setLevel(level)
@@ -486,12 +496,14 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
         """
         Directory to write log to
         """
+        level = logging._checkLevel(level)
         file_handler = logging.FileHandler(log_path)
         formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)-8s %(message)s')
 
         file_handler.setFormatter(formatter)
         file_handler.setLevel(level)
         self.logger.addHandler(file_handler)
+        self.logger.setLevel(min(self.logger.level, level))
 
     def gen_credits(self, html: bool = False) -> str:
         """
