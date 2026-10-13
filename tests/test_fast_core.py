@@ -541,3 +541,21 @@ def test_normalize_ghidra_decomp_renames_every_label_on_a_line():
         "  if (DAT_1 != 0) goto LAB_0;\n",
         "  rc_MyDAT_00ff(_DAT_0);\n",
     ]
+
+
+def test_normalize_ghidra_decomp_address_labels():
+    code = [
+        'switchD_00401000_caseD_1: goto joined_r0x00402000;\n',
+        'switchD_00401000_default: goto code_r0x00403000;\n',
+        'switchD_00401100_caseD_2: switchdataD_00404000;\n',
+        'switchD_00401000_caseD_3: joined_r0x00402000;\n',
+    ]
+
+    GhidraDiffEngine.normalize_ghidra_decomp(None, code)
+
+    assert code == [
+        'switchD_0_caseD_1: goto joined_r0x0;\n',
+        'switchD_0_default: goto code_r0x0;\n',
+        'switchD_1_caseD_2: switchdataD_0;\n',
+        'switchD_0_caseD_3: joined_r0x0;\n',
+    ]

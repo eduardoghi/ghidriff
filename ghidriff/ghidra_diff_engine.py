@@ -1689,6 +1689,12 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
     # _DAT_...). A preceding letter or digit means it is part of a longer
     # identifier; a following word character means the hex run is not the end.
     DEFAULT_LABEL = re.compile(r'(?<![0-9A-Za-z])(LAB|DAT|SUB|UNK|EXT|FUN|OFF)_([0-9a-fA-F]+)(?![0-9A-Za-z_])')
+    ADDRESS_LABEL = re.compile(
+        r'(?<![0-9A-Za-z_])'
+        r'(?:(switchD|switchdataD)_([0-9a-fA-F]+)((?:_caseD_\d+|_default)?)'
+        r'|(joined_r0x|code_r0x)([0-9a-fA-F]+))'
+        r'(?![0-9A-Za-z_])'
+    )
 
     def normalize_ghidra_decomp(self, code: list):
         """
@@ -1708,8 +1714,19 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
                 labels[label] = f'{prefix}_{len(labels)}'
             return labels[label]
 
+        def rename_address_label(match: re.Match) -> str:
+            prefix = match.group(1) or match.group(4)
+            address = match.group(2) or match.group(5)
+            suffix = match.group(3) or ''
+            labels = matches.setdefault(prefix, {})
+            if address not in labels:
+                labels[address] = len(labels)
+            separator = '' if prefix.endswith('0x') else '_'
+            return f'{prefix}{separator}{labels[address]}{suffix}'
+
         for i, line in enumerate(code):
-            code[i] = GhidraDiffEngine.DEFAULT_LABEL.sub(rename, line)
+            line = GhidraDiffEngine.DEFAULT_LABEL.sub(rename, line)
+            code[i] = GhidraDiffEngine.ADDRESS_LABEL.sub(rename_address_label, line)
 
     def remove_code_sig(self, code, split_char='{'):
         """
