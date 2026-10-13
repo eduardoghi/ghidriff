@@ -199,6 +199,65 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
         self.logger.debug(f'{vars(self)}')
 
     @staticmethod
+    def mask_code_unit(code_unit) -> str:
+        """
+        Return the text of a code unit with every memory address it references replaced by ADDR.
+
+        Call targets, globals and string pointers move between builds, so the raw text of an
+        unchanged function differs whenever anything before it grew or shrank. Registers,
+        constants and stack offsets are kept, so a changed immediate still shows up.
+        """
+
+        offsets = set()
+        for ref in code_unit.getReferencesFrom():
+            to_addr = ref.getToAddress()
+            if to_addr is not None and to_addr.isMemoryAddress():
+                offsets.add(to_addr.getOffset())
+        offsets.update(GhidraDiffEngine.scalar_addresses(code_unit))
+
+        text = str(code_unit)
+        for offset in offsets:
+            text = re.sub(rf'\b0x0*{offset:x}\b', 'ADDR', text, flags=re.IGNORECASE)
+        return text
+
+    @staticmethod
+    def scalar_addresses(code_unit) -> set:
+        """
+        Values of scalar operands that point into the program's memory.
+
+        Some address operands get no reference, such as an exception handler address pushed
+        onto the stack, but they still move between builds.
+        """
+
+        if not hasattr(code_unit, 'getOpObjects'):
+            return set()
+
+        program = code_unit.getProgram()
+        memory = program.getMemory()
+        space = program.getAddressFactory().getDefaultAddressSpace()
+        values = set()
+        for i in range(code_unit.getNumOperands()):
+            for obj in code_unit.getOpObjects(i):
+                if not hasattr(obj, 'getUnsignedValue'):
+                    continue
+                value = obj.getUnsignedValue()
+                try:
+                    address = space.getAddress(value)
+                except Exception:
+                    continue
+                if memory.contains(address):
+                    values.add(value)
+        return values
+
+    def masked_instructions(self, func: 'ghidra.program.model.listing.Function') -> list:
+        """
+        Masked text of each code unit in a function body, in address order.
+        """
+
+        listing = func.getProgram().getListing()
+        return [self.mask_code_unit(code_unit) for code_unit in listing.getCodeUnits(func.getBody(), True)]
+
+    @staticmethod
     def get_ghidra_application_info(launcher) -> SimpleNamespace:
         """
         Return Ghidra application metadata from the active layout or launcher config.
@@ -503,8 +562,8 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
 
                     # instruction and mnemonic bulker
                     for code in code_units:
-                        instructions.append(str(code))
-                        mnemonics.append(str(code.getMnemonicString))
+                        instructions.append(self.mask_code_unit(code))
+                        mnemonics.append(str(code.getMnemonicString()))
 
                     from ghidra.program.model.block import BasicBlockModel
 
@@ -1594,6 +1653,16 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
                 and min(func.body.numAddresses, func2.body.numAddresses) <= self.min_func_len
             ):
                 need_diff = True
+            elif not {'ExactBytesFunctionHasher', 'ExactInstructionsFunctionHasher'}.intersection(match_types):
+                # Same size and reference count still allows a changed constant, register or
+                # comparison, and a match by name alone says nothing about the body. Compare the
+                # instructions with moved addresses masked out.
+                memo = self.__dict__.setdefault('need_diff_memo', {})
+                key = (str(sym.getProgram().getUniqueProgramID()), sym.getID(),
+                       str(sym2.getProgram().getUniqueProgramID()), sym2.getID())
+                if key not in memo:
+                    memo[key] = self.masked_instructions(func) != self.masked_instructions(func2)
+                need_diff = memo[key]
 
         return need_diff
 
@@ -1910,7 +1979,7 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
             only_code_diff = ''.join(list(difflib.unified_diff(old_code_no_sig, new_code_no_sig, lineterm='\n',
                                      fromfile=from_file_name, tofile=to_file_name)))  # ignores name changes
 
-            if len(only_code_diff) > 0 and (mnemonics_ratio < 1.0 or blocks_ratio < 1.0):
+            if len(only_code_diff) > 0 and (instructions_ratio < 1.0 or mnemonics_ratio < 1.0 or blocks_ratio < 1.0):
 
                 # handle bad match external match (sometimes occurs with implied matches)
                 if ratio == 0.0 and (blocks_ratio == 0.0):

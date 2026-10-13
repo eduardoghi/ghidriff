@@ -154,6 +154,110 @@ def test_remove_code_sig_always_returns_list_of_strings():
     assert missing == []
 
 
+class _FakeAddress:
+    def __init__(self, offset, memory=True):
+        self.offset = offset
+        self.memory = memory
+
+    def isMemoryAddress(self):
+        return self.memory
+
+    def getOffset(self):
+        return self.offset
+
+
+class _FakeRef:
+    def __init__(self, address):
+        self.address = address
+
+    def getToAddress(self):
+        return self.address
+
+
+class _FakeCodeUnit:
+    def __init__(self, text, refs=()):
+        self.text = text
+        self.refs = list(refs)
+
+    def __str__(self):
+        return self.text
+
+    def getReferencesFrom(self):
+        return self.refs
+
+
+def test_mask_code_unit_hides_moved_addresses():
+    call = _FakeCodeUnit("CALL 0x00401a2c", [_FakeRef(_FakeAddress(0x401a2c))])
+    load = _FakeCodeUnit("MOV EDX,dword ptr [0x446D8514]", [_FakeRef(_FakeAddress(0x446d8514))])
+
+    assert GhidraDiffEngine.mask_code_unit(call) == "CALL ADDR"
+    assert GhidraDiffEngine.mask_code_unit(load) == "MOV EDX,dword ptr [ADDR]"
+
+
+class _FakeScalar:
+    def __init__(self, value):
+        self.value = value
+
+    def getUnsignedValue(self):
+        return self.value
+
+
+class _FakeSpace:
+    def getAddress(self, value):
+        return value
+
+
+class _FakeMemory:
+    def contains(self, address):
+        return 0x44000000 <= address < 0x45000000
+
+
+class _FakeAddressFactory:
+    def getDefaultAddressSpace(self):
+        return _FakeSpace()
+
+
+class _FakeMemoryProgram:
+    def getMemory(self):
+        return _FakeMemory()
+
+    def getAddressFactory(self):
+        return _FakeAddressFactory()
+
+
+class _FakeInstruction(_FakeCodeUnit):
+    def __init__(self, text, operands):
+        super().__init__(text)
+        self.operands = operands
+
+    def getProgram(self):
+        return _FakeMemoryProgram()
+
+    def getNumOperands(self):
+        return len(self.operands)
+
+    def getOpObjects(self, index):
+        return self.operands[index]
+
+
+def test_mask_code_unit_hides_unreferenced_scalar_addresses():
+    handler = _FakeInstruction("PUSH 0x4401439a", [[_FakeScalar(0x4401439a)]])
+    constant = _FakeInstruction("PUSH 0x12", [[_FakeScalar(0x12)]])
+
+    assert GhidraDiffEngine.mask_code_unit(handler) == "PUSH ADDR"
+    assert GhidraDiffEngine.mask_code_unit(constant) == "PUSH 0x12"
+
+
+def test_mask_code_unit_keeps_constants_and_stack_offsets():
+    constant = _FakeCodeUnit("MOV dword ptr [RBP + -0x4],0xc")
+    stack = _FakeCodeUnit("MOV EAX,dword ptr [EBP + -0x24]", [_FakeRef(_FakeAddress(-0x24, memory=False))])
+    other = _FakeCodeUnit("MOV EAX,0x4012", [_FakeRef(_FakeAddress(0x401a2c))])
+
+    assert GhidraDiffEngine.mask_code_unit(constant) == "MOV dword ptr [RBP + -0x4],0xc"
+    assert GhidraDiffEngine.mask_code_unit(stack) == "MOV EAX,dword ptr [EBP + -0x24]"
+    assert GhidraDiffEngine.mask_code_unit(other) == "MOV EAX,0x4012"
+
+
 def test_pe_extra_data_rejects_non_pe_file(tmp_path: Path):
     not_a_pe = tmp_path / "not-a-pe.bin"
     not_a_pe.write_text("not a PE")
@@ -231,6 +335,75 @@ def test_exact_instruction_matches_can_skip_deeper_diff_when_metadata_matches():
         ["ExactInstructionsFunctionHasher"],
         [],
     ) is False
+
+
+class _FakeListing:
+    def __init__(self, lines):
+        self.lines = lines
+
+    def getCodeUnits(self, body, forward):
+        return [_FakeCodeUnit(line) for line in self.lines]
+
+
+class _FakeBodyProgram:
+    def __init__(self, program_id, lines):
+        self.program_id = program_id
+        self.listing = _FakeListing(lines)
+        self.functionManager = self
+
+    def getFunctionAt(self, address):
+        return _FakeBodyFunc(self)
+
+    def getUniqueProgramID(self):
+        return self.program_id
+
+    def getListing(self):
+        return self.listing
+
+
+class _FakeBodyFunc:
+    body = _FakeBody()
+
+    def __init__(self, program):
+        self.program = program
+
+    def getProgram(self):
+        return self.program
+
+    def getBody(self):
+        return self.body
+
+
+class _FakeBodySymbol:
+    address = "0x1000"
+    referenceCount = 1
+
+    def __init__(self, program):
+        self.program = program
+
+    def getProgram(self):
+        return self.program
+
+    def getID(self):
+        return 1
+
+
+def test_name_matches_get_diffed_when_a_constant_changes():
+    engine = object.__new__(_FastEngine)
+    engine.min_func_len = 10
+    old = _FakeBodySymbol(_FakeBodyProgram(1, ["MOV dword ptr [RBP + -0x4],0x0", "RET"]))
+    new = _FakeBodySymbol(_FakeBodyProgram(2, ["MOV dword ptr [RBP + -0x4],0xc", "RET"]))
+
+    assert GhidraDiffEngine.syms_need_diff(engine, old, new, ["SymbolsHash"], []) is True
+
+
+def test_name_matches_skip_diff_when_instructions_match():
+    engine = object.__new__(_FastEngine)
+    engine.min_func_len = 10
+    old = _FakeBodySymbol(_FakeBodyProgram(1, ["MOV dword ptr [RBP + -0x4],0x0", "RET"]))
+    new = _FakeBodySymbol(_FakeBodyProgram(2, ["MOV dword ptr [RBP + -0x4],0x0", "RET"]))
+
+    assert GhidraDiffEngine.syms_need_diff(engine, old, new, ["SymbolsHash"], []) is False
 
 
 class _FakeSymbolTable:
