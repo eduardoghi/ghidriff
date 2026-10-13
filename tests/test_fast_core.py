@@ -660,3 +660,24 @@ def test_side_by_side_files_do_not_overwrite_same_named_functions(tmp_path: Path
                               write_diff=False, write_json=False, write_matches=False)
 
     assert len(list((tmp_path / 'sxs_html').glob('*.md'))) == 2
+
+
+def test_mermaid_flowchart_labels_new_function_with_its_param_count():
+    def esym(paramcount):
+        return {'fullname': 'TOrder::Post', 'paramcount': paramcount}
+
+    pdiff = {
+        'old_meta': {'Program Name': 'old.bpl'},
+        'new_meta': {'Program Name': 'new.bpl'},
+        'functions': {
+            'added': [],
+            'deleted': [],
+            'modified': [{'old': esym(1), 'new': esym(2), 'diff_type': ['code'], 'b_ratio': 0.5}],
+        },
+    }
+    engine = object.__new__(_FastEngine)
+
+    flowchart = engine.gen_mermaid_diff_flowchart(pdiff)
+
+    assert 'TOrderPost-2-new' in flowchart
+    assert 'TOrderPost-1-new' not in flowchart
