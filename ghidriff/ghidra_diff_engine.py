@@ -521,6 +521,14 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
         # key = f'{sym.iD}-{sym.program.name}-{get_decomp_info}-{use_calling_counts}'
         key = f'{sym.iD}-{self._program_key(sym.program)}'
 
+        # A record cached by a call without decompilation has no code, instructions or
+        # blocks. SimpleDiff and StructualGraphDiff enhance symbols that way while
+        # matching, so rebuild the record when a later call asks for decompilation,
+        # otherwise the change disappears from the diff.
+        decomp_keys = self.__dict__.setdefault('esym_decomp_keys', set())
+        if get_decomp_info and key not in decomp_keys:
+            self.esym_memo.pop(key, None)
+
         if key not in self.esym_memo:
 
             from ghidra.util.task import ConsoleTaskMonitor
@@ -635,6 +643,9 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
                 self.esym_memo[key] = {'name': sym.getName(), 'fullname': sym.getName(True),  'parent':  parent_namespace, 'refcount': sym.getReferenceCount(), 'length': func.body.numAddresses, 'called': called_funcs,
                                        'calling': calling_funcs, 'paramcount': func.parameterCount, 'address': str(sym.getAddress()), 'sig': str(func.getSignature(False)), 'code': code,
                                        'instructions': instructions, 'mnemonics': mnemonics, 'blocks': blocks, 'sym_type': str(sym.getSymbolType()), 'sym_source': str(sym.source), 'external': sym.external}
+
+            if get_decomp_info:
+                decomp_keys.add(key)
 
         return self.esym_memo[key]
 
@@ -2143,6 +2154,7 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
 
         # reset global esym OTHERWISE this gets big
         self.esym_memo = {}
+        self.esym_decomp_keys = set()
 
         self.project.close(p1)
         self.project.close(p2)
