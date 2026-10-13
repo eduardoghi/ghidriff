@@ -1,11 +1,12 @@
 import argparse
+import struct
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from ghidriff import GhidraDiffEngine, get_parser
-from ghidriff.utils import get_pe_extra_data
+from ghidriff.utils import get_pe_download_name, get_pe_extra_data
 
 
 pytestmark = pytest.mark.fast
@@ -256,6 +257,51 @@ def test_mask_code_unit_keeps_constants_and_stack_offsets():
     assert GhidraDiffEngine.mask_code_unit(constant) == "MOV dword ptr [RBP + -0x4],0xc"
     assert GhidraDiffEngine.mask_code_unit(stack) == "MOV EAX,dword ptr [EBP + -0x24]"
     assert GhidraDiffEngine.mask_code_unit(other) == "MOV EAX,0x4012"
+
+
+def _minimal_pe(export_name: bytes, characteristics: int = 0x2022, pe32_plus: bool = True) -> bytes:
+    """Build a PE with one section that holds an export directory naming export_name."""
+
+    opt_size = 240 if pe32_plus else 224
+    section_rva, section_raw = 0x1000, 0x200
+    image = bytearray(section_raw + 0x200)
+    image[0:2] = b'MZ'
+    struct.pack_into('<I', image, 60, 0x40)
+    struct.pack_into('<4sHHIIIHH', image, 0x40, b'PE\0\0', 0x8664, 1, 0x12345678, 0, 0, opt_size, characteristics)
+    opt = 0x40 + 24
+    struct.pack_into('<H', image, opt, 0x20b if pe32_plus else 0x10b)
+    struct.pack_into('<I', image, 0x40 + 0x50, 0x3000)
+    struct.pack_into('<H', image, opt + 68, 3)
+    struct.pack_into('<II', image, opt + (112 if pe32_plus else 96), section_rva, 40)
+    struct.pack_into('<8sIIII', image, opt + opt_size, b'.edata', 0x200, section_rva, 0x200, section_raw)
+    struct.pack_into('<I', image, section_raw + 12, section_rva + 40)
+    image[section_raw + 40:section_raw + 40 + len(export_name) + 1] = export_name + b'\0'
+    return bytes(image)
+
+
+@pytest.mark.parametrize('pe32_plus', [True, False])
+def test_pe_extra_data_reads_export_name(tmp_path: Path, pe32_plus: bool):
+    pe = tmp_path / 'archiveint.x64.10.0.19041.3803'
+    pe.write_bytes(_minimal_pe(b'archiveint.dll', pe32_plus=pe32_plus))
+
+    info = get_pe_extra_data(pe)
+
+    assert info['export_name'] == 'archiveint.dll'
+    assert info['characteristics'] & 0x2000
+    assert info['timestamp'] == 0x12345678
+
+
+def test_pe_download_name_restores_missing_extension():
+    dll = {'characteristics': 0x2022, 'subsystem': 3, 'export_name': 'archiveint.dll'}
+    exe = {'characteristics': 0x0022, 'subsystem': 3, 'export_name': None}
+    driver = {'characteristics': 0x0022, 'subsystem': 1, 'export_name': None}
+
+    assert get_pe_download_name('archiveint', dll) == 'archiveint.dll'
+    assert get_pe_download_name('ntdll.dll.mui', dll) == 'ntdll.dll'
+    assert get_pe_download_name('notepad.exe', exe) == 'notepad.exe'
+    assert get_pe_download_name('notepad', exe) == 'notepad.exe'
+    assert get_pe_download_name('mydriver', driver) == 'mydriver.sys'
+    assert get_pe_download_name('other', {**dll, 'export_name': 'unrelated.dll'}) == 'other.dll'
 
 
 def test_pe_extra_data_rejects_non_pe_file(tmp_path: Path):

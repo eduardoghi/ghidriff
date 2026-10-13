@@ -18,7 +18,7 @@ from argparse import Namespace
 import logging
 
 from pyghidra.launcher import PyGhidraLauncher
-from .utils import sha1_file, get_microsoft_download_url, get_pe_extra_data
+from .utils import sha1_file, get_microsoft_download_url, get_pe_download_name, get_pe_extra_data
 from .markdown import GhidriffMarkdown
 
 import multiprocessing
@@ -1303,6 +1303,7 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
         path = Path(path)
         try:
             pe_info = get_pe_extra_data(path)
+            filename = get_pe_download_name(filename, pe_info)
             url = get_microsoft_download_url(filename, pe_info['timestamp'], pe_info['image_size'])
         except:
             self.logger.warn(f'PE Parsing error. Exception thrown parsing {path.name}')
