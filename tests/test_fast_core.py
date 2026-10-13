@@ -525,3 +525,19 @@ def test_program_key_falls_back_to_object_identity():
 
     assert GhidraDiffEngine._program_key(p1) == GhidraDiffEngine._program_key(p1)
     assert GhidraDiffEngine._program_key(p1) != GhidraDiffEngine._program_key(p2)
+
+
+def test_normalize_ghidra_decomp_renames_every_label_on_a_line():
+    code = [
+        "  DAT_00601000 = FUN_00401000(DAT_00601004, PTR_DAT_00601008);\n",
+        "  if (DAT_00601004 != 0) goto LAB_00401020;\n",
+        "  rc_MyDAT_00ff(_DAT_00601000);\n",
+    ]
+
+    GhidraDiffEngine.normalize_ghidra_decomp(None, code)
+
+    assert code == [
+        "  DAT_0 = FUN_0(DAT_1, PTR_DAT_2);\n",
+        "  if (DAT_1 != 0) goto LAB_0;\n",
+        "  rc_MyDAT_00ff(_DAT_0);\n",
+    ]

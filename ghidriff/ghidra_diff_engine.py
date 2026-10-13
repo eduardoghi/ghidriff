@@ -1684,6 +1684,12 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
 
         return '-'.join((path.name, sha1_file(path.absolute())[:6]))
 
+    # Ghidra's default names for things without a user or analysis name:
+    # LAB_00401000, DAT_00601000, FUN_00401000 (also inside PTR_DAT_... and
+    # _DAT_...). A preceding letter or digit means it is part of a longer
+    # identifier; a following word character means the hex run is not the end.
+    DEFAULT_LABEL = re.compile(r'(?<![0-9A-Za-z])(LAB|DAT|SUB|UNK|EXT|FUN|OFF)_([0-9a-fA-F]+)(?![0-9A-Za-z_])')
+
     def normalize_ghidra_decomp(self, code: list):
         """
         Normalize some of the dynamic labels to simplify the diff
@@ -1692,20 +1698,18 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
 
         """
 
-        default_labels = ['LAB', 'DAT', 'SUB', 'UNK', 'EXT', 'FUN', 'OFF']
-
         matches = {}
+
+        def rename(match: re.Match) -> str:
+            prefix = match.group(1)
+            labels = matches.setdefault(prefix, {})
+            label = match.group(0)
+            if label not in labels:
+                labels[label] = f'{prefix}_{len(labels)}'
+            return labels[label]
+
         for i, line in enumerate(code):
-
-            for label in default_labels:
-
-                match = re.search(fr'{label}_[0-9a-f]+', line)
-                if match is not None:
-                    if matches.get(match.group(0)) is None:
-                        prefix = match.group(0).split('_')[0]
-                        matches[match.group(0)] = f'{prefix}_{len(matches)}'
-                    code[i] = line.replace(match.group(0), matches[match.group(0)])
-                    # TODO fix this line to work when a line has multiple default label
+            code[i] = GhidraDiffEngine.DEFAULT_LABEL.sub(rename, line)
 
     def remove_code_sig(self, code, split_char='{'):
         """
