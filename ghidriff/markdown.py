@@ -824,44 +824,49 @@ pie showData
             md.new_paragraph(
                 f"**This section was skipped because markdown was too big. Adjust max_section_funcs: {max_section_funcs} to a higher number.**")
         else:
+            # Pick the functions first, so skipped ones don't use up the limit and the omitted
+            # count only covers functions this section would have shown.
+            slightly_modified = []
             for modified in funcs['modified']:
-
-                if modified_with_code >= max_section_funcs:
-                    md.new_header(2, 'Max Modified (No Code Changes) Section Functions Reached Error')
-                    md.new_line(f"{len(funcs['modified']) - max_section_funcs} Functions Ommited...")
-                    self.logger.warn(f'Max Modified Section Functions {max_section_funcs} Reached')
-                    self.logger.warn(f"{len(funcs['modified']) - max_section_funcs} Functions Ommited...")
-                    break
 
                 mods = set(slight_mods).intersection(set(modified['diff_type']))
 
                 # only show non code mods and skip if code m_ratio is same
                 if 'code' not in modified['diff_type'] and len(mods) > 0 and (modified['m_ratio'] < 1.0 or len(modified['diff']) == 0):
+                    if not self._is_generated_name_noise(modified, mods):
+                        slightly_modified.append(modified)
 
-                    modified_with_code += 1
+            for i, modified in enumerate(slightly_modified):
 
-                    if modified['old']['external']:
-                        old_func_name = modified['old']['fullname']
-                    else:
-                        old_func_name = modified['old']['name']
+                if modified_with_code >= max_section_funcs:
+                    omitted = len(slightly_modified) - i
+                    md.new_header(2, 'Max Modified (No Code Changes) Section Functions Reached Error')
+                    md.new_line(f"{omitted} Functions Ommited...")
+                    self.logger.warn(f'Max Modified Section Functions {max_section_funcs} Reached')
+                    self.logger.warn(f"{omitted} Functions Ommited...")
+                    break
 
-                    if self._is_generated_name_noise(modified, mods):
-                        continue
+                modified_with_code += 1
 
-                    md.new_header(2, old_func_name)
+                if modified['old']['external']:
+                    old_func_name = modified['old']['fullname']
+                else:
+                    old_func_name = modified['old']['name']
 
-                    md.new_header(3, "Match Info", add_table_of_contents='n')
-                    md.new_paragraph(self.gen_esym_table_diff_meta(old_name, new_name, modified))
+                md.new_header(2, old_func_name)
 
-                    md.new_header(3, "Function Meta Diff", add_table_of_contents='n')
-                    md.new_paragraph(self.gen_esym_table_diff(old_name, new_name, modified))
+                md.new_header(3, "Match Info", add_table_of_contents='n')
+                md.new_paragraph(self.gen_esym_table_diff_meta(old_name, new_name, modified))
 
-                    if 'called' in modified['diff_type']:
-                        md.new_header(3, f"{old_func_name} Called Diff", add_table_of_contents='n')
-                        md.new_paragraph(self.gen_esym_key_diff(modified['old'], modified['new'], 'called', n=0))
-                    if 'calling' in modified['diff_type']:
-                        md.new_header(3, f"{old_func_name} Calling Diff", add_table_of_contents='n')
-                        md.new_paragraph(self.gen_esym_key_diff(modified['old'], modified['new'], 'calling', n=0))
+                md.new_header(3, "Function Meta Diff", add_table_of_contents='n')
+                md.new_paragraph(self.gen_esym_table_diff(old_name, new_name, modified))
+
+                if 'called' in modified['diff_type']:
+                    md.new_header(3, f"{old_func_name} Called Diff", add_table_of_contents='n')
+                    md.new_paragraph(self.gen_esym_key_diff(modified['old'], modified['new'], 'called', n=0))
+                if 'calling' in modified['diff_type']:
+                    md.new_header(3, f"{old_func_name} Calling Diff", add_table_of_contents='n')
+                    md.new_paragraph(self.gen_esym_key_diff(modified['old'], modified['new'], 'calling', n=0))
 
         # add credit
         md.new_paragraph(pdiff['md_credits'])

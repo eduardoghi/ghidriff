@@ -783,3 +783,11 @@ def test_modified_section_limit_ignores_trailing_functions_without_code_changes(
 
     assert 'Max Modified Section Functions Reached Error' not in md
 
+
+def test_slight_mods_limit_counts_only_functions_the_section_would_show():
+    md = _gen_md([_md_modified('a', ['code']), _md_modified('b', ['refcount']), _md_modified('c', ['code']),
+                  _md_modified('x', ['address'])], max_section_funcs=2)
+
+    assert 'Max Modified (No Code Changes) Section Functions Reached Error' in md
+    assert md.count('Functions Ommited...') == 1
+    assert '\n1 Functions Ommited...' in md
