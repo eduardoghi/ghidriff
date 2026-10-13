@@ -1780,9 +1780,10 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
     )
 
     # Ghidra's PE loader comments each export as "<rva>  <ordinal>  <name>",
-    # wrapping a long name onto the next line. The ordinal and name are export
-    # facts; the RVA only restates placement.
-    EXPORT_COMMENT_RVA = re.compile(r'(?<![0-9A-Za-z_])0x[0-9a-fA-F]+(?=  \d+(?:  \S|\s*$))')
+    # wrapping a long name onto the next line. The name is the export fact. The
+    # RVA restates placement, and the ordinal is the export's index, which
+    # shifts for every export added before it (a Delphi BPL adds them often).
+    EXPORT_COMMENT_RVA_ORDINAL = re.compile(r'(?<![0-9A-Za-z_])0x[0-9a-fA-F]+  \d+(?=  \S|\s*$)')
     # Decompiler warnings locate themselves by address ("Could not recover
     # jumptable at 0x...", "Removing unreachable block (ram,0x...)").
     WARNING_COMMENT = re.compile(r'/\* WARNING: ')
@@ -1819,7 +1820,7 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
         for i, line in enumerate(code):
             line = GhidraDiffEngine.DEFAULT_LABEL.sub(rename, line)
             line = GhidraDiffEngine.ADDRESS_LABEL.sub(rename_address_label, line)
-            line = GhidraDiffEngine.EXPORT_COMMENT_RVA.sub('RVA', line)
+            line = GhidraDiffEngine.EXPORT_COMMENT_RVA_ORDINAL.sub('RVA  ORD', line)
             if GhidraDiffEngine.WARNING_COMMENT.search(line):
                 line = GhidraDiffEngine.WARNING_ADDRESS.sub('ADDR', line)
             code[i] = line
