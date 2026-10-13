@@ -267,7 +267,9 @@ class GhidriffMarkdown:
             sxs_diff_html = GhidriffMarkdown.gen_code_table_diff_html(
                 old_code, new_code, old_name, new_name, bottom=pdiff['html_credits'])
 
-            sxs_diff_htmls.append([mod['old']['name'], sxs_diff_html])
+            # The name alone is not unique (overloads, methods of different classes), so the
+            # caller also gets the old address to build a distinct file name.
+            sxs_diff_htmls.append([mod['old']['name'], sxs_diff_html, mod['old']['address']])
 
         return sxs_diff_htmls
 

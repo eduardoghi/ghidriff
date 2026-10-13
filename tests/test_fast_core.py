@@ -1,4 +1,5 @@
 import argparse
+import logging
 import struct
 from pathlib import Path
 from types import SimpleNamespace
@@ -638,3 +639,24 @@ def test_project_location_rejects_hidden_path_elements(tmp_path: Path):
 
     with pytest.raises(ValueError, match=r'\.cache'):
         GhidraDiffEngine.check_project_location(tmp_path / '.cache' / 'ghidra_projects')
+
+
+def test_side_by_side_files_do_not_overwrite_same_named_functions(tmp_path: Path):
+    def mod(fullname, address):
+        def esym(code):
+            return {'name': 'Create', 'fullname': fullname, 'address': address, 'code': code}
+
+        return {'old': esym('int a;\n'), 'new': esym('int b;\n'), 'diff_type': ['code']}
+
+    pdiff = {
+        'functions': {'added': [], 'deleted': [],
+                      'modified': [mod('TOrder::Create', '00401000'), mod('TItem::Create', '00402000')]},
+        'html_credits': '',
+    }
+    engine = object.__new__(_FastEngine)
+    engine.logger = logging.getLogger('test')
+
+    engine.dump_pdiff_to_path('old-new', pdiff, tmp_path, side_by_side=True,
+                              write_diff=False, write_json=False, write_matches=False)
+
+    assert len(list((tmp_path / 'sxs_html').glob('*.md'))) == 2

@@ -2396,10 +2396,11 @@ class GhidraDiffEngine(GhidriffMarkdown, metaclass=ABCMeta):
 
             sxs_diff_htmls = GhidriffMarkdown.gen_sxs_html_from_pdiff(pdiff)
 
-            for func_name, sxs_diff_html in sxs_diff_htmls:
+            for func_name, sxs_diff_html, func_address in sxs_diff_htmls:
 
                 # give line ending md despite html so it will render in gists and vscode
-                sxs_diff_path = sxs_output_path / Path('.'.join([name, _clean_func(func_name), 'md']))
+                file_stem = re.sub(r'[\\/:*?"<>|]', '_', f'{_clean_func(func_name)}.{func_address}')
+                sxs_diff_path = sxs_output_path / Path('.'.join([name, file_stem, 'md']))
                 sxs_diff_path.write_text(sxs_diff_html, encoding='utf-8')
 
             combined_sxs_diff_html = GhidriffMarkdown.gen_combined_sxs_html_from_pdiff(pdiff)
